@@ -21,9 +21,10 @@ def main():
 
     LOGGER.info("Starting index build process...")
 
-    if Path(CHROMA_PATH).exists():
-        LOGGER.info(f"Removing existing ChromaDB directory at {CHROMA_PATH}")
-        shutil.rmtree(CHROMA_PATH)
+    chroma_dir = BASE_DIR / CHROMA_PATH
+    if chroma_dir.exists():
+        LOGGER.info(f"Removing existing ChromaDB directory at {chroma_dir}")
+        shutil.rmtree(chroma_dir)
 
     LOGGER.info("🔧 Building index...")
 
