@@ -1,6 +1,2 @@
 .vscode/
 .github/
-
-# Folder for input documents.
-!docs/
-docs/*
