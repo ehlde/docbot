@@ -1,0 +1,7 @@
+.venv/
+.chroma/
+__pycache__/
+
+# Folder for input documents.
+!docs/
+docs/*
