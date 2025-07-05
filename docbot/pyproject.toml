@@ -1,0 +1,17 @@
+[project]
+name = "docbot"
+version = "0.1.0"
+description = "A bot to search scattered and unorganised documentation."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.0.15",
+    "langchain>=0.3.26",
+    "llama-index>=0.12.46",
+    "llama-index-embeddings-huggingface>=0.5.5",
+    "llama-index-llms-ollama>=0.6.2",
+    "llama-index-vector-stores-chroma>=0.4.2",
+    "ollama>=0.5.1",
+    "ruff>=0.12.2",
+    "sentence-transformers>=5.0.0",
+]
