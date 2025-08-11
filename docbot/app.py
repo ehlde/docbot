@@ -1,60 +1,41 @@
-from llama_index.core import StorageContext, load_index_from_storage, Settings
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.llms.ollama import Ollama
-from llama_index.core.query_engine import RetrieverQueryEngine
-from llama_index.core.response_synthesizers import CompactAndRefine
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-import chromadb
+import argparse
 from pathlib import Path
+import time
 
-from common import get_chroma_settings, CHROMA_PATH, setup_logger
+from common import setup_logger, DEFAULT_LLM, DEFAULT_EMBEDDING_MODEL
+from query_engine import setup_query_engine
 
-BASE_DIR = Path(__file__).resolve().parent
 LOGGER = setup_logger()
-MODEL_NAME = "gemma3n:e2b"
 
 
-def setup_query_engine():
-    """Set up the query engine with vector store and LLM."""
-    LOGGER.info("🔧 Setting up query engine...")
-
-    # Set embedding model first
-    Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
-
-    # Set up vector store + LLM
-    chroma_settings = get_chroma_settings(BASE_DIR)
-    LOGGER.info(f"ChromaDB settings: {chroma_settings.persist_directory}")
-    chroma_client = chromadb.PersistentClient(
-        path=CHROMA_PATH,
-        settings=chroma_settings,
+def parse_args():
+    parser = argparse.ArgumentParser(description="Local Support Assistant")
+    parser.add_argument("--llm", default=DEFAULT_LLM, help="LLM model to use")
+    parser.add_argument(
+        "--embedding-model",
+        default=DEFAULT_EMBEDDING_MODEL,
+        help="Embedding model to use for indexing",
     )
-    chroma_collection = chroma_client.get_or_create_collection("support_docs")
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    storage_context = StorageContext.from_defaults(
-        vector_store=vector_store, persist_dir=chroma_settings.persist_directory
+    parser.add_argument(
+        "--num-sources", type=int, default=3, help="Number of sources to display"
     )
-
-    index = load_index_from_storage(storage_context)
-    LOGGER.info("✅ Index loaded successfully!")
-
-    llm = Ollama(
-        model=MODEL_NAME,
-        request_timeout=60,
-        system_prompt="You are a precise assistant. Only use the provided context to answer. If unsure, say 'I don't know.'",
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=180,
+        help="Request timeout in seconds",
     )
-
-    retriever = index.as_retriever(similarity_top_k=3)
-    query_engine = RetrieverQueryEngine.from_args(
-        retriever=retriever,
-        llm=llm,
-        response_synthesizer=CompactAndRefine(llm=llm),
-        node_postprocessors=[],
+    parser.add_argument(
+        "--db-path",
+        default=str(Path(".chroma")),
+        help="Path to the ChromaDB directory",
     )
+    return parser.parse_args()
 
-    return query_engine
 
-
-def main():
+def main(
+    llm: str, embedding_model: str, database_path: Path, num_sources: int, timeout: int
+):
     """Main CLI interface."""
     LOGGER.info("Starting Local Support Assistant")
 
@@ -62,9 +43,9 @@ def main():
     print("=" * 50)
 
     # Setup query engine
-    query_engine = setup_query_engine()
+    query_engine = setup_query_engine(llm, embedding_model, database_path, num_sources)
 
-    print("\n💡 Ask your support questions (type 'quit' or 'exit' to stop)")
+    print("\n💡 Ask your support questions, in English. Type 'quit' or 'exit' to stop.")
     print("-" * 50)
 
     while True:
@@ -83,7 +64,14 @@ def main():
 
             # Process the query
             print("\n🧠 Thinking...")
+
+            start_time = time.monotonic()
+
             response = query_engine.query(query)
+
+            # Calculate and print the duration of the query
+            duration = time.monotonic() - start_time
+            print(f"\n⏱️ Query processed in {duration:.2f} seconds.")
 
             # Display source information first (compact format)
             if hasattr(response, "source_nodes") and response.source_nodes:
@@ -96,16 +84,20 @@ def main():
                     # Display compact source info
                     source_info = f"{i}. {file_name}"
                     if page_label:
-                        source_info += f" (Page {page_label})"
+                        source_info += f" - Page {page_label}."
                     if hasattr(node, "score"):
-                        source_info += f" - Relevance: {node.score:.3f}"
+                        source_info += f" Relevance: {node.score:.3f}"
                     print(source_info)
+
+                    if i > 5:
+                        print("... (more sources not displayed)")
+                        break
                 print()
 
             # Display the response after sources
             print("📖 Answer:")
             print("-" * 30)
-            print(str(response))
+            print(str(response).strip("\n"))
             print("-" * 30)
 
         except KeyboardInterrupt:
@@ -116,4 +108,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    LOGGER.info(
+        f"LLM: {args.llm}\nEmbedding Model: {args.embedding_model}\nNumber of sources: {args.num_sources}\nTimeout: {args.timeout}s"
+    )
+
+    main(args.llm, args.embedding_model, args.db_path, args.num_sources, args.timeout)
