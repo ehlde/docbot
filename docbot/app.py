@@ -20,6 +20,12 @@ def parse_args():
         "--num-sources", type=int, default=3, help="Number of sources to display"
     )
     parser.add_argument(
+        "--relevance-threshold",
+        type=float,
+        default=0.48,
+        help="Relevance threshold for filtering sources",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=180,
@@ -34,7 +40,12 @@ def parse_args():
 
 
 def main(
-    llm: str, embedding_model: str, database_path: Path, num_sources: int, timeout: int
+    llm: str,
+    embedding_model: str,
+    database_path: Path,
+    num_sources: int,
+    timeout: int,
+    relevance_threshold: float,
 ):
     """Main CLI interface."""
     LOGGER.info("Starting Local Support Assistant")
@@ -43,7 +54,9 @@ def main(
     print("=" * 50)
 
     # Setup query engine
-    query_engine = setup_query_engine(llm, embedding_model, database_path, num_sources)
+    query_engine = setup_query_engine(
+        llm, embedding_model, database_path, num_sources, timeout, relevance_threshold
+    )
 
     print("\n💡 Ask your support questions, in English. Type 'quit' or 'exit' to stop.")
     print("-" * 50)
@@ -113,4 +126,11 @@ if __name__ == "__main__":
         f"LLM: {args.llm}\nEmbedding Model: {args.embedding_model}\nNumber of sources: {args.num_sources}\nTimeout: {args.timeout}s"
     )
 
-    main(args.llm, args.embedding_model, args.db_path, args.num_sources, args.timeout)
+    main(
+        args.llm,
+        args.embedding_model,
+        args.db_path,
+        args.num_sources,
+        args.timeout,
+        args.relevance_threshold,
+    )

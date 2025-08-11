@@ -37,8 +37,8 @@ def setup_query_engine(
     model_name: str,
     embedding_model: str,
     database_path: Path,
-    timeout: int = 180,
     num_sources: int = 3,
+    timeout: int = 180,
     relevance_threshold: float = 0.25,
 ) -> RetrieverQueryEngine:
     """Set up the query engine with vector store and LLM."""
