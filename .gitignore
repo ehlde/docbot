@@ -1,2 +1,5 @@
 .vscode/
 .github/
+__pycache__/
+*.pyc
+*.egg-info/
