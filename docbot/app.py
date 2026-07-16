@@ -5,16 +5,32 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.response_synthesizers import CompactAndRefine
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import chromadb
+import argparse
 from pathlib import Path
 
-from common import get_chroma_settings, CHROMA_PATH, setup_logger
+from common import get_chroma_settings, CHROMA_PATH, DEFAULT_DATABASE, setup_logger
 
 BASE_DIR = Path(__file__).resolve().parent
 LOGGER = setup_logger()
 MODEL_NAME = "gemma3n:e2b"
 
 
-def setup_query_engine():
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run the local support assistant.")
+    parser.add_argument(
+        "--model",
+        default=MODEL_NAME,
+        help=f"Ollama model to use (default: {MODEL_NAME})",
+    )
+    parser.add_argument(
+        "--database",
+        default=DEFAULT_DATABASE,
+        help=f"Chroma collection/database to query (default: {DEFAULT_DATABASE})",
+    )
+    return parser.parse_args()
+
+
+def setup_query_engine(model_name: str, database_name: str):
     """Set up the query engine with vector store and LLM."""
     LOGGER.info("🔧 Setting up query engine...")
 
@@ -28,7 +44,16 @@ def setup_query_engine():
         path=CHROMA_PATH,
         settings=chroma_settings,
     )
-    chroma_collection = chroma_client.get_or_create_collection("support_docs")
+    available_collections = {collection.name for collection in chroma_client.list_collections()}
+    if database_name not in available_collections:
+        available_label = ", ".join(sorted(available_collections)) or "<none>"
+        raise ValueError(
+            f"Database '{database_name}' was not found. "
+            f"Available databases: {available_label}. "
+            "Build it first with build_index.py."
+        )
+
+    chroma_collection = chroma_client.get_collection(database_name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(
         vector_store=vector_store, persist_dir=chroma_settings.persist_directory
@@ -38,7 +63,7 @@ def setup_query_engine():
     LOGGER.info("✅ Index loaded successfully!")
 
     llm = Ollama(
-        model=MODEL_NAME,
+        model=model_name,
         request_timeout=60,
         system_prompt="You are a precise assistant. Only use the provided context to answer. If unsure, say 'I don't know.'",
     )
@@ -56,13 +81,16 @@ def setup_query_engine():
 
 def main():
     """Main CLI interface."""
+    args = parse_args()
     LOGGER.info("Starting Local Support Assistant")
 
     print("🔍 Local Support Assistant")
     print("=" * 50)
+    print(f"🧩 Model: {args.model}")
+    print(f"🗄️ Database: {args.database}")
 
     # Setup query engine
-    query_engine = setup_query_engine()
+    query_engine = setup_query_engine(model_name=args.model, database_name=args.database)
 
     print("\n💡 Ask your support questions (type 'quit' or 'exit' to stop)")
     print("-" * 50)
