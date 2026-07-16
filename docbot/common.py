@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 CHROMA_PATH = ".chroma"
+DEFAULT_DATABASE = "support_docs"
 
 
 def get_chroma_settings(base_dir: Path) -> Settings:
